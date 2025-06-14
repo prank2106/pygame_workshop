@@ -14,19 +14,36 @@ class Tree:
         else:  # big tree
             self.image = pygame.image.load("assets/tree_big.png").convert_alpha()
 
+        
+        self.dying = False
+        self.death_timer = 0.0
+
         self.rect = self.image.get_rect(center=(x, y))
         self.max_health = 25 if tree_type == "small" else 75
         self.health = self.max_health
         self.sway_offset = random.uniform(0, 2 * math.pi)  # Pro animaci kývání
 
     def update(self, dt):
-        """Aktualizace stromu (animace kývání)"""
-        pass
+        """Aktualizace stromu (animace pokácení)"""
+        
+        if self.dying:
+            self.death_timer -= dt
+
 
     def render(self, screen, camera_x, camera_y):
         screen_x = int(self.position.x - camera_x)
         screen_y = int(self.position.y - camera_y)
-        screen.blit(self.image, self.image.get_rect(center=(screen_x, screen_y)))
+        # Vytvoříme kopii obrázku pro úpravu průhlednosti
+        image = self.image.copy()
+
+        if self.dying:
+            # Vypočítáme poměr zbývajícího času
+            ratio = max(0, self.death_timer / 0.4)  # 0.4 je výchozí doba zániku
+            alpha = int(255 * ratio)
+            image.set_alpha(alpha)
+
+        screen.blit(image, image.get_rect(center=(screen_x, screen_y)))
+
 
 
 class Bush:
@@ -255,8 +272,10 @@ class World:
     def update(self, dt):
         """Aktualizace herního světa"""
         # Aktualizace stromů
-        for tree in self.trees:
+        for tree in self.trees[:]:  # kopie seznamu, protože můžeme mazat
             tree.update(dt)
+            if tree.dying and tree.death_timer <= 0:
+                self.trees.remove(tree)
 
         # Možné regenerování stromů
         if random.random() < 0.001:  # 0.1% šance každý frame

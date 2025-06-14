@@ -17,6 +17,13 @@ class Player:
         self.animation_timer = 0
         self.animation_index = 0
 
+        # Sekací animace
+        self.chop_sheet = pygame.image.load("assets/lumberjack_chop.png").convert_alpha()
+        self.chop_frame_width = self.chop_sheet.get_width() // 15
+        self.chop_frame_height = self.chop_sheet.get_height() // 3
+        self.chop_index = 0
+        self.chop_timer = 0
+        self.is_chopping = False
 
         # Herní statistiky
         self.health = 100
@@ -40,6 +47,10 @@ class Player:
         self.chopping_animation = 0
         self.damage_flash = 0
         self.last_direction = Vector2(0, -1)  # Poslední směr pohybu
+
+        # Hlášky pro hráče
+        self.message = ""
+        self.message_timer = 0.0
 
         # Časovače
         self.energy_regen_timer = 0
@@ -109,11 +120,16 @@ class Player:
             self.energy = min(self.max_energy, self.energy + 5)
             self.energy_regen_timer = 0
 
-        # Snížení animačních časovačů
-        if self.chopping_animation > 0:
-            self.chopping_animation -= dt
-        if self.damage_flash > 0:
-            self.damage_flash -= dt
+        # Spuštěná sekací animace
+        if self.is_chopping:
+            self.chop_timer += dt
+            if self.chop_timer >= 0.05:  # další frame každých 0.05s
+                self.chop_index += 1
+                self.chop_timer = 0
+                if self.chop_index >= 15:
+                    self.is_chopping = False  # konec animace
+                    self.chop_index = 0
+
 
         # Snížení cooldownů
         if self.catch_cooldown > 0:
@@ -125,6 +141,12 @@ class Player:
             if self.protection_timer <= 0:
                 self.has_protection = False
         
+        # Časovač zprávy
+        if self.message_timer > 0:
+            self.message_timer -= dt
+            if self.message_timer <= 0:
+                self.message = ""
+
         # Animace chůze
         if self.velocity.magnitude() > 0:
             self.animation_timer += dt
@@ -134,7 +156,11 @@ class Player:
         else:
             self.animation_index = 0  # reset na první snímek při stání
 
-
+    def show_message(self, text, duration=2.0):
+            """Zobrazí dočasnou zprávu hráči"""
+            self.message = text
+            self.message_timer = duration
+            
     def try_chop_tree(self, trees):
         """Pokus o pokácení stromu"""
         if self.energy < 10:
@@ -151,6 +177,11 @@ class Player:
                 closest_distance = distance
 
         if closest_tree:
+            # Zákaz sekání velkého stromu bez lepší sekery
+            if closest_tree.tree_type == "big" and not self.has_better_axe:
+                self.show_message("Tento strom je příliš silný pro obyčejnou sekeru!")
+                return False
+
             # OPRAVA: Aplikace efektu lepší sekery
             if self.has_better_axe:
                 damage = 35  # Více poškození s lepší sekerou
@@ -160,7 +191,10 @@ class Player:
                 self.energy -= 10  # Standardní spotřeba energie
 
             closest_tree.health -= damage
-            self.chopping_animation = 0.5  # Animace sekání
+            self.is_chopping = True
+            self.chop_index = 0
+            self.chop_timer = 0
+
 
             # Pokácení stromu
             if closest_tree.health <= 0:
@@ -171,10 +205,32 @@ class Player:
                     wood_gained = 5
 
                 self.wood += wood_gained
-                trees.remove(closest_tree)
+                closest_tree.dying = True
+                closest_tree.death_timer = 0.4  # např. 0.4 sekundy zpoždění
+
                 return True
 
         return False
+
+    def get_chop_frame(self):
+        if self.last_direction.y < 0:
+            row = 0  # nahoru
+        elif self.last_direction.x > 0:
+            row = 1  # doprava
+        elif self.last_direction.x < 0:
+            row = 1  # zrcadleně doleva
+        else:
+            row = 2  # dolů jako výchozí
+
+        col = self.chop_index % 15
+        frame_rect = pygame.Rect(col * self.chop_frame_width, row * self.chop_frame_height,
+                                self.chop_frame_width, self.chop_frame_height)
+        frame = self.chop_sheet.subsurface(frame_rect)
+
+        if self.last_direction.x < 0:
+            frame = pygame.transform.flip(frame, True, False)
+
+        return frame
 
     def try_catch_goblin(self, goblins):
         """OPRAVA: Pokus o chytání goblina"""
@@ -300,11 +356,18 @@ class Player:
             print("Získal jsi ochranu! Poloviční poškození na 60 sekund.")
 
     def render(self, screen, camera_x, camera_y):
-        """Vykreslení hráče"""
-        screen_x = int(self.position.x - camera_x - self.frame_width // 2)
-        screen_y = int(self.position.y - camera_y - self.frame_height // 2)
+        if self.is_chopping:
+            frame = self.get_chop_frame()
+            frame_width = self.chop_frame_width
+            frame_height = self.chop_frame_height
+        else:
+            frame = self.get_current_frame()
+            frame_width = self.frame_width
+            frame_height = self.frame_height
 
-        frame = self.get_current_frame()
+        screen_x = int(self.position.x - camera_x - frame_width // 2)
+        screen_y = int(self.position.y - camera_y - frame_height // 2)
+
         screen.blit(frame, (screen_x, screen_y))
 
         # Barva hráče (červená při poškození)
@@ -324,3 +387,10 @@ class Player:
             axe_color = (200, 100, 50) if not self.has_better_axe else (150, 75, 0)
             pygame.draw.line(screen, axe_color, (screen_x, screen_y), (axe_x, axe_y), 4)
             pygame.draw.circle(screen, (100, 50, 0), (axe_x, axe_y), 8)
+                # Zobrazení zprávy hráči (např. "strom je moc silný")
+        if self.message:
+            font = pygame.font.SysFont("arial", 18)
+            text_surf = font.render(self.message, True, (255, 255, 255))
+            text_rect = text_surf.get_rect(center=(screen.get_width() // 2, 40))
+            screen.blit(text_surf, text_rect)
+
