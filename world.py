@@ -5,20 +5,17 @@ from game_engine import Vector2, GameEngine, NumPyUtils
 
 class Tree:
     """Třída reprezentující strom"""
-
     def __init__(self, x, y, tree_type="small"):
         self.position = Vector2(x, y)
         self.tree_type = tree_type  # "small" nebo "big"
 
         if tree_type == "small":
-            self.size = random.randint(15, 25)
-            self.max_health = 25
-            self.color = (34, 139, 34)
+            self.image = pygame.image.load("assets/tree_small.png").convert_alpha()
         else:  # big tree
-            self.size = random.randint(30, 45)
-            self.max_health = 75
-            self.color = (0, 100, 0)
+            self.image = pygame.image.load("assets/tree_big.png").convert_alpha()
 
+        self.rect = self.image.get_rect(center=(x, y))
+        self.max_health = 25 if tree_type == "small" else 75
         self.health = self.max_health
         self.sway_offset = random.uniform(0, 2 * math.pi)  # Pro animaci kývání
 
@@ -27,71 +24,50 @@ class Tree:
         pass
 
     def render(self, screen, camera_x, camera_y):
-        """Vykreslení stromu"""
         screen_x = int(self.position.x - camera_x)
         screen_y = int(self.position.y - camera_y)
+        screen.blit(self.image, self.image.get_rect(center=(screen_x, screen_y)))
 
-        # Jemné kývání stromu
-        sway = math.sin(pygame.time.get_ticks() * 0.002 + self.sway_offset) * 2
-
-        # Kmen stromu
-        trunk_color = (139, 69, 19)
-        trunk_width = max(4, self.size // 8)
-        trunk_height = self.size // 2
-
-        pygame.draw.rect(screen, trunk_color, 
-                        (screen_x - trunk_width//2 + int(sway), 
-                         screen_y + self.size//2, 
-                         trunk_width, 
-                         trunk_height))
-
-        # Koruna stromu (s indikátorem poškození)
-        if self.health < self.max_health:
-            # Světlejší barva při poškození
-            damage_ratio = 1 - (self.health / self.max_health)
-            r = int(self.color[0] + (139 - self.color[0]) * damage_ratio)
-            g = int(self.color[1] * (1 - damage_ratio * 0.5))
-            b = int(self.color[2] * (1 - damage_ratio * 0.5))
-            crown_color = (r, g, b)
-        else:
-            crown_color = self.color
-
-        pygame.draw.circle(screen, crown_color, 
-                          (screen_x + int(sway), screen_y), self.size)
-        pygame.draw.circle(screen, (0, 100, 0), 
-                          (screen_x + int(sway), screen_y), self.size, 2)
 
 class Bush:
     """Třída reprezentující keř - dekorativní objekt"""
 
     def __init__(self, x, y):
         self.position = Vector2(x, y)
-        self.size = random.randint(8, 15)
-        self.color = (0, 128, 0)
+        self.image = pygame.image.load("assets/bush.png").convert_alpha()
+        self.rect = self.image.get_rect(center=(x, y))
 
     def render(self, screen, camera_x, camera_y):
-        """Vykreslení keře"""
         screen_x = int(self.position.x - camera_x)
         screen_y = int(self.position.y - camera_y)
-
-        pygame.draw.circle(screen, self.color, (screen_x, screen_y), self.size)
-        pygame.draw.circle(screen, (0, 80, 0), (screen_x, screen_y), self.size, 1)
+        screen.blit(self.image, self.image.get_rect(center=(screen_x, screen_y)))
 
 class Rock:
     """Třída reprezentující kámen - překážka"""
 
     def __init__(self, x, y):
         self.position = Vector2(x, y)
-        self.size = random.randint(12, 20)
-        self.color = (128, 128, 128)
+        self.image = pygame.image.load("assets/rock.png").convert_alpha()
+        self.rect = self.image.get_rect(center=(x, y))
+        self.radius = max(self.rect.width, self.rect.height) // 2
+
 
     def render(self, screen, camera_x, camera_y):
-        """Vykreslení kamene"""
         screen_x = int(self.position.x - camera_x)
         screen_y = int(self.position.y - camera_y)
+        screen.blit(self.image, self.image.get_rect(center=(screen_x, screen_y)))
 
-        pygame.draw.circle(screen, self.color, (screen_x, screen_y), self.size)
-        pygame.draw.circle(screen, (64, 64, 64), (screen_x, screen_y), self.size, 2)
+class Decoration:
+    def __init__(self, x, y, image):
+        self.position = Vector2(x, y)
+        self.image = image
+        self.rect = self.image.get_rect(center=(x, y))
+
+    def render(self, screen, camera_x, camera_y):
+        screen_x = int(self.position.x - camera_x)
+        screen_y = int(self.position.y - camera_y)
+        screen.blit(self.image, self.image.get_rect(center=(screen_x, screen_y)))
+
 
 class World:
     """Třída pro správu herního světa"""
@@ -108,6 +84,17 @@ class World:
         self.trees = []
         self.bushes = []
         self.rocks = []
+        self.decorations = []
+        self.decoration_images = [
+            pygame.image.load("assets/props_grass_01.png").convert_alpha(),
+            pygame.image.load("assets/props_grass_02.png").convert_alpha(),
+            pygame.image.load("assets/props_grass_08.png").convert_alpha(),
+            pygame.image.load("assets/props_grass_07.png").convert_alpha(),
+            pygame.image.load("assets/props_vegetation_18.png").convert_alpha(),
+            pygame.image.load("assets/props_vegetation_19.png").convert_alpha(),
+            pygame.image.load("assets/props_vegetation_23.png").convert_alpha(),
+            pygame.image.load("assets/props_vegetation_26.png").convert_alpha(),
+        ]
 
         # Generování světa
         self.generate_world()
@@ -132,7 +119,10 @@ class World:
         # Generování kamenů
         self.generate_rocks()
 
-        print(f"Vygenerováno: {len(self.trees)} stromů, {len(self.bushes)} keřů, {len(self.rocks)} kamenů")
+        # Generování dekoraci
+        self.generate_decorations()
+
+        print(f"Vygenerováno: {len(self.trees)} stromů, {len(self.bushes)} keřů, {len(self.rocks)} kamenů, {len(self.decorations)} dekorací")
 
     def generate_trees(self, noise_map):
         """Generování stromů na základě šumové mapy"""
@@ -170,7 +160,7 @@ class World:
 
     def generate_bushes(self):
         """Generování keřů"""
-        num_bushes = random.randint(80, 120)
+        num_bushes = random.randint(50, 100)
 
         for _ in range(num_bushes):
             x = random.uniform(30, self.world_width - 30)
@@ -212,6 +202,15 @@ class World:
 
             if not too_close:
                 self.rocks.append(Rock(x, y))
+    def generate_decorations(self):
+        num = random.randint(300, 400)
+        for _ in range(num):
+            x = random.uniform(0, self.world_width)
+            y = random.uniform(0, self.world_height)
+            if self.is_position_clear(x, y, 20):
+                image = random.choice(self.decoration_images)
+                self.decorations.append(Decoration(x, y, image))
+
 
     def get_objects_in_area(self, center_x, center_y, radius):
         """Získání objektů v dané oblasti"""
@@ -241,12 +240,14 @@ class World:
 
         # Kontrola se stromy
         for tree in self.trees:
-            if GameEngine.distance(pos, tree.position) < radius + tree.size:
+            tree_radius = tree.image.get_width() // 2
+            if GameEngine.distance(pos, tree.position) < radius + tree_radius:
                 return False
 
         # Kontrola s kameny
         for rock in self.rocks:
-            if GameEngine.distance(pos, rock.position) < radius + rock.size:
+            rock_radius = rock.image.get_width() // 2
+            if GameEngine.distance(pos, rock.position) < radius + rock.radius:
                 return False
 
         return True
@@ -274,7 +275,7 @@ class World:
     def render(self, screen, camera_x, camera_y):
         """Vykreslení herního světa"""
         # Vykreslení pozadí
-        screen.fill((34, 139, 34))  # Lesní zelená
+        screen.fill((34, 139, 34))
 
         # Culling - vykreslení pouze objektů na obrazovce
         screen_rect = pygame.Rect(camera_x - 50, camera_y - 50, 
@@ -298,6 +299,11 @@ class World:
             if (camera_x - 50 <= tree.position.x <= camera_x + self.screen_width + 50 and
                 camera_y - 50 <= tree.position.y <= camera_y + self.screen_height + 50):
                 tree.render(screen, camera_x, camera_y)
+        
+        for deco in self.decorations:
+            if (camera_x - 50 <= deco.position.x <= camera_x + self.screen_width + 50 and
+                camera_y - 50 <= deco.position.y <= camera_y + self.screen_height + 50):
+                deco.render(screen, camera_x, camera_y)
 
     def get_minimap_data(self, camera_x, camera_y, minimap_size):
         """Získání dat pro minimapu"""
