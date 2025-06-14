@@ -11,6 +11,13 @@ class Player:
         self.velocity = Vector2(0, 0)
         self.size = 15
 
+        self.sprite_sheet = pygame.image.load("assets/lumberjack_sheet_9x3.png").convert_alpha()
+        self.frame_width = self.sprite_sheet.get_width() // 9
+        self.frame_height = self.sprite_sheet.get_height() // 3
+        self.animation_timer = 0
+        self.animation_index = 0
+
+
         # Herní statistiky
         self.health = 100
         self.max_health = 100
@@ -38,6 +45,29 @@ class Player:
         self.energy_regen_timer = 0
         self.protection_timer = 0
         self.catch_cooldown = 0  # OPRAVA: Cooldown pro chytání goblina
+
+    def get_current_frame(self):
+        if self.last_direction.y > 0:
+            row = 0  # dolů
+        elif self.last_direction.x > 0:
+            row = 1  # doprava
+        elif self.last_direction.x < 0:
+            row = 1  # LEVÁ = použij doprava a zrcadli
+        elif self.last_direction.y < 0:
+            row = 2  # nahoru
+        else:
+            row = 0
+
+        col = self.animation_index % 9
+        frame_rect = pygame.Rect(col * self.frame_width, row * self.frame_height, self.frame_width, self.frame_height)
+        frame = self.sprite_sheet.subsurface(frame_rect)
+
+        # Zrcadlení doleva
+        if self.last_direction.x < 0:
+            frame = pygame.transform.flip(frame, True, False)
+
+        return frame
+
 
     def handle_input(self, keys):
         """Zpracování vstupu od hráče"""
@@ -94,6 +124,16 @@ class Player:
             self.protection_timer -= dt
             if self.protection_timer <= 0:
                 self.has_protection = False
+        
+        # Animace chůze
+        if self.velocity.magnitude() > 0:
+            self.animation_timer += dt
+            if self.animation_timer > 0.1:  # každých 0.1s další frame
+                self.animation_index = (self.animation_index + 1) % 9
+                self.animation_timer = 0
+        else:
+            self.animation_index = 0  # reset na první snímek při stání
+
 
     def try_chop_tree(self, trees):
         """Pokus o pokácení stromu"""
@@ -261,8 +301,11 @@ class Player:
 
     def render(self, screen, camera_x, camera_y):
         """Vykreslení hráče"""
-        screen_x = int(self.position.x - camera_x)
-        screen_y = int(self.position.y - camera_y)
+        screen_x = int(self.position.x - camera_x - self.frame_width // 2)
+        screen_y = int(self.position.y - camera_y - self.frame_height // 2)
+
+        frame = self.get_current_frame()
+        screen.blit(frame, (screen_x, screen_y))
 
         # Barva hráče (červená při poškození)
         color = (255, 100, 100) if self.damage_flash > 0 else (0, 0, 255)
@@ -273,11 +316,6 @@ class Player:
             if blink:
                 color = (255, 255, 0)  # Žlutá barva při ochraně
 
-        # Vykreslení hráče
-        pygame.draw.circle(screen, color, (screen_x, screen_y), self.size)
-        pygame.draw.circle(screen, (0, 0, 0), (screen_x, screen_y), self.size, 2)
-
-        # Animace sekání
         if self.chopping_animation > 0:
             # Vykreslení sekery
             axe_x = screen_x + int(self.last_direction.x * 25)
