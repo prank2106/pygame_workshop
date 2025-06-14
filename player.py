@@ -160,7 +160,7 @@ class Player:
             """Zobrazí dočasnou zprávu hráči"""
             self.message = text
             self.message_timer = duration
-            
+
     def try_chop_tree(self, trees):
         """Pokus o pokácení stromu"""
         if self.energy < 10:
@@ -378,16 +378,8 @@ class Player:
             blink = int(pygame.time.get_ticks() / 200) % 2
             if blink:
                 color = (255, 255, 0)  # Žlutá barva při ochraně
-
-        if self.chopping_animation > 0:
-            # Vykreslení sekery
-            axe_x = screen_x + int(self.last_direction.x * 25)
-            axe_y = screen_y + int(self.last_direction.y * 25)
-
-            axe_color = (200, 100, 50) if not self.has_better_axe else (150, 75, 0)
-            pygame.draw.line(screen, axe_color, (screen_x, screen_y), (axe_x, axe_y), 4)
-            pygame.draw.circle(screen, (100, 50, 0), (axe_x, axe_y), 8)
-                # Zobrazení zprávy hráči (např. "strom je moc silný")
+                
+        # Zpráva pro hrace
         if self.message:
             font = pygame.font.SysFont("arial", 18)
             text_surf = font.render(self.message, True, (255, 255, 255))

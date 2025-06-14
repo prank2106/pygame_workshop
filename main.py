@@ -26,6 +26,8 @@ class ForestLumberjack:
         self.screen_height = 768
         self.screen = pygame.display.set_mode((self.screen_width, self.screen_height))
         pygame.display.set_caption("Forest Lumberjack - Dřevorubec v lese")
+        self.trader_image = pygame.image.load("assets/props_camping_tent_02.png").convert_alpha()
+
 
         self.clock = pygame.time.Clock()
         self.running = True
@@ -237,8 +239,9 @@ class ForestLumberjack:
         # Vykreslení obchodníka
         trader_x = int(self.trader_pos.x - self.camera_x)
         trader_y = int(self.trader_pos.y - self.camera_y)
-        pygame.draw.circle(self.screen, (255, 215, 0), (trader_x, trader_y), 20)
-        pygame.draw.circle(self.screen, (0, 0, 0), (trader_x, trader_y), 20, 2)
+        tent_rect = self.trader_image.get_rect(center=(trader_x, trader_y))
+        self.screen.blit(self.trader_image, tent_rect)
+
 
         # Vykreslení NPC
         self.npc_manager.render(self.screen, self.camera_x, self.camera_y)
