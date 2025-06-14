@@ -148,34 +148,53 @@ class Leprechaun:
 
 class Bear:
     """Třída reprezentující medvěda - nepřítele"""
+    shared_sprite_sheet = None
+
+    sprite_width = 64
+    sprite_height = 64
+    frame_count = 4
+    direction_map = {
+        "down": 0,
+        "right": 1,
+        "up": 2,
+        "left": 3
+    }
 
     def __init__(self, x, y):
         self.position = Vector2(x, y)
         self.target_position = Vector2(x, y)
         self.size = 20
         self.speed = 60
-        self.color = (139, 69, 19)  # Hnědá
+        self.color = (139, 69, 19)
         self.attack_cooldown = 0
         self.wander_timer = 0
+        self.frame = 0
+        self.animation_timer = 0
+        self.direction = "down" 
+        self.current_frame = 0
 
     def update(self, dt, player):
         """Aktualizace medvěda"""
         self.attack_cooldown -= dt
         player_distance = GameEngine.distance(self.position, player.position)
+        self.animation_timer += dt
+        if self.animation_timer > 0.2:
+            self.current_frame = (self.current_frame + 1) % self.frame_count
+            self.animation_timer = 0
 
         if player_distance < 100:
-            # Pronásledování hráče
             direction = player.position - self.position
             if direction.magnitude() > 0:
                 direction = direction.normalize()
                 self.position = self.position + direction * self.speed * dt
-
-            # Útok na hráče
+                if abs(direction.x) > abs(direction.y):
+                    self.direction = "right" if direction.x > 0 else "left"
+                else:
+                    self.direction = "down" if direction.y > 0 else "up"
             if player_distance < 30 and self.attack_cooldown <= 0:
                 player.take_damage(15)
-                self.attack_cooldown = 2.0  # 2 sekundy mezi útoky
+                self.attack_cooldown = 2.0
         else:
-            # Náhodné putování
             self.wander_timer += dt
             if self.wander_timer >= 4.0:
                 offset_x = random.uniform(-100, 100)
@@ -185,19 +204,36 @@ class Bear:
                     self.position.y + offset_y
                 )
                 self.wander_timer = 0
-
             direction = self.target_position - self.position
             if direction.magnitude() > 2:
                 direction = direction.normalize()
                 self.position = self.position + direction * (self.speed * 0.5) * dt
+                if abs(direction.x) > abs(direction.y):
+                    self.direction = "right" if direction.x > 0 else "left"
+                else:
+                    self.direction = "down" if direction.y > 0 else "up"
 
     def render(self, screen, camera_x, camera_y):
-        """Vykreslení medvěda"""
         screen_x = int(self.position.x - camera_x)
         screen_y = int(self.position.y - camera_y)
 
-        pygame.draw.circle(screen, self.color, (screen_x, screen_y), self.size)
-        pygame.draw.circle(screen, (0, 0, 0), (screen_x, screen_y), self.size, 2)
+        if Bear.shared_sprite_sheet is None:
+            Bear.shared_sprite_sheet = pygame.image.load("assets/Higan.png").convert_alpha()
+
+
+        row = self.direction_map[self.direction]
+        col = self.frame
+        frame_rect = pygame.Rect(
+            col * self.sprite_width,
+            row * self.sprite_height,
+            self.sprite_width,
+            self.sprite_height
+        )
+        sprite = Bear.shared_sprite_sheet.subsurface(frame_rect)
+        screen.blit(sprite, (
+            screen_x - self.sprite_width // 2,
+            screen_y - self.sprite_height // 2
+        ))
 
 class Fox:
     """Třída reprezentující lišku - rychlého zloděje"""
