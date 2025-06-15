@@ -112,7 +112,7 @@ class World:
             pygame.image.load("assets/props_vegetation_23.png").convert_alpha(),
             pygame.image.load("assets/props_vegetation_26.png").convert_alpha(),
         ]
-
+    
         # Generování světa
         self.generate_world()
 
@@ -228,6 +228,22 @@ class World:
                 image = random.choice(self.decoration_images)
                 self.decorations.append(Decoration(x, y, image))
 
+    def is_position_walkable(self, x, y, radius=12):
+        """Zda je možné na dané pozici stát (bez kolize s pevnými objekty)"""
+        pos = Vector2(x, y)
+
+        for tree in self.trees:
+            if tree.dying:
+                continue  # Nebereme v úvahu umírající stromy
+            tree_radius = tree.image.get_width() // 2
+            if GameEngine.distance(pos, tree.position) < radius + tree_radius:
+                return False
+
+        for rock in self.rocks:
+            if GameEngine.distance(pos, rock.position) < radius + rock.radius:
+                return False
+
+        return True
 
     def get_objects_in_area(self, center_x, center_y, radius):
         """Získání objektů v dané oblasti"""

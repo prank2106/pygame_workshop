@@ -59,7 +59,11 @@ class ForestLumberjack:
     def init_game(self):
         """Inicializace nové hry"""
         self.world = World(self.screen_width, self.screen_height)
-        self.player = Player(400, 300)
+
+        #Nalezení bezpečného místa pro spawn hráče
+        spawn_x, spawn_y = self.find_spawn_point()
+        self.player = Player(spawn_x, spawn_y, self.world)
+
         self.npc_manager = NPCManager(self.world)
         self.ui = UI(self.screen_width, self.screen_height)
         self.shop_system = ShopSystem()
@@ -70,6 +74,16 @@ class ForestLumberjack:
         # Kamera
         self.camera_x = self.player.position.x - self.screen_width // 2
         self.camera_y = self.player.position.y - self.screen_height // 2
+
+    def find_spawn_point(self):
+        """🔍 Hledání bezpečného místa pro spawn hráče"""
+        for _ in range(1000):  # Zkus až 1000 různých pozic
+            x = random.uniform(100, self.world.world_width - 100)
+            y = random.uniform(100, self.world.world_height - 100)
+            if self.world.is_position_walkable(x, y, radius=15):  #Kontrola kolizí
+                return x, y
+        print("Nenašel se volný spawn point, používá se default.")
+        return 400, 300  # záložní bod, pokud vše selže
 
     def handle_events(self):
         """Zpracování událostí"""

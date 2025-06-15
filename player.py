@@ -6,10 +6,13 @@ from game_engine import Vector2, GameEngine
 class Player:
     """Třída reprezentující hráče - dřevorubce"""
 
-    def __init__(self, start_x, start_y):
+    def __init__(self, start_x, start_y, world):
         self.position = Vector2(start_x, start_y)
         self.velocity = Vector2(0, 0)
         self.size = 15
+
+        self.world = world
+
 
         self.sprite_sheet = pygame.image.load("assets/lumberjack_sheet_9x3.png").convert_alpha()
         self.frame_width = self.sprite_sheet.get_width() // 9
@@ -111,8 +114,18 @@ class Player:
     def update(self, dt):
         """Aktualizace hráče"""
         # Pohyb
-        self.position.x += self.velocity.x * dt
-        self.position.y += self.velocity.y * dt
+        # --- Kolizní pohyb hráče ---
+        new_x = self.position.x + self.velocity.x * dt
+        new_y = self.position.y + self.velocity.y * dt
+
+        # Odděleně kontrolujeme osu X a osu Y
+        if self.velocity.x != 0:
+            if self.world.is_position_walkable(new_x, self.position.y, radius=self.size):
+                self.position.x = new_x
+        if self.velocity.y != 0:
+            if self.world.is_position_walkable(self.position.x, new_y, radius=self.size):
+                self.position.y = new_y
+
 
         # Regenerace energie
         self.energy_regen_timer += dt
@@ -385,4 +398,5 @@ class Player:
             text_surf = font.render(self.message, True, (255, 255, 255))
             text_rect = text_surf.get_rect(center=(screen.get_width() // 2, 40))
             screen.blit(text_surf, text_rect)
+    
 

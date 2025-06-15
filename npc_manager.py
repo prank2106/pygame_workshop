@@ -359,33 +359,33 @@ class NPCManager:
     def spawn_npcs(self):
         """Vytvoření NPC postav"""
         # Goblinové (2-3)
-        for i in range(random.randint(2, 3)):
-            x = random.uniform(150, 850)
-            y = random.uniform(150, 650)
+        for i in range(random.randint(8, 15)):
+            x = random.uniform(0, self.world.world_width)
+            y = random.uniform(0, self.world.world_height)
             self.goblins.append(Goblin(x, y))
 
         # Leprikónové (1-2)
-        for i in range(random.randint(1, 2)):
-            x = random.uniform(200, 800)
-            y = random.uniform(200, 600)
+        for i in range(random.randint(3, 4)):
+            x = random.uniform(0, self.world.world_width)
+            y = random.uniform(0, self.world.world_height)
             self.leprechauns.append(Leprechaun(x, y))
 
         # Medvědi (1-2)
-        for i in range(random.randint(1, 2)):
-            x = random.uniform(300, 700)
-            y = random.uniform(300, 500)
+        for i in range(random.randint(10, 15)):
+            x = random.uniform(0, self.world.world_width)
+            y = random.uniform(0, self.world.world_height)
             self.bears.append(Bear(x, y))
 
         # Lišky (2-4)
-        for i in range(random.randint(2, 4)):
-            x = random.uniform(100, 900)
-            y = random.uniform(100, 700)
+        for i in range(random.randint(14, 20)):
+            x = random.uniform(0, self.world.world_width)
+            y = random.uniform(0, self.world.world_height)
             self.foxes.append(Fox(x, y))
 
         # Králíci (3-6)
-        for i in range(random.randint(3, 6)):
-            x = random.uniform(150, 850)
-            y = random.uniform(150, 650)
+        for i in range(random.randint(10, 20)):
+            x = random.uniform(0, self.world.world_width)
+            y = random.uniform(0, self.world.world_height)
             self.rabbits.append(Rabbit(x, y))
 
     def update(self, dt, player):
