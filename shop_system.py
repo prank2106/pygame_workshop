@@ -2,7 +2,7 @@ import pygame
 from game_engine import Vector2, GameEngine
 
 class ShopSystem:
-    """Třída pro správu obchodu a transakcí"""
+    """Třída pro správu obchodu"""
 
     def __init__(self):
         self.shop_items = {

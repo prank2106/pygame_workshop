@@ -214,23 +214,23 @@ class ForestLumberjack:
 
         # Instrukce
         instructions = [
-            f"Cíl: Nasbírej {self.target_coins} mincí",
+    f"Cíl hry: Nasbírej {self.target_coins} mincí",
             "",
-            "Ovládání:",
-            "Šipky - Pohyb",
-            "MEZERNÍK - Kácení stromu",
-            "P - Prodej dřeva (u obchodníka)",
-            "B - Otevřít obchod (u obchodníka)",
-            "1-4 - Rychlé nákupy (u obchodníka)",
-            "E - Použít jídlo",
-            "H - Použít lektvar",
-            "G - Chytit goblina",
-            "L - Interakce s leprikónem",
+            "Ovládání aka Controls:",
+            "Šipky - pohyb",
+            "MEZERNÍK - kácení stromu",
+            "P jako Prodat, prodej dřevo obchodníkovi",
+            "B jako Buy, otevři nabídku obchodníka",
+            "1-4 - nákup předmětu u obchodníka",
+            "E jako Eat, použít jídlo",
+            "H jako Heal, použít lektvar",
+            "G jako Goblin, chytit goblina",
+            "L jako Leprikón, interakce s leprikónem",
             "",
             "Pozor na nebezpečná stvoření!",
             "",
-            "Stiskni ENTER pro začátek"
-        ]
+            "Popadni sekeru, stiskni ENTER a hurá do lesa!",
+]
 
         y_offset = 280
         for instruction in instructions:
