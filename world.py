@@ -93,6 +93,10 @@ class World:
         self.screen_width = screen_width
         self.screen_height = screen_height
 
+        # Načtení plotu
+        self.fence_horizontal = pygame.image.load("assets/fence_horizontal.png").convert_alpha()
+        self.fence_vertical = pygame.image.load("assets/fence_vertical.png").convert_alpha()
+
         # Rozměry světa (větší než obrazovka)
         self.world_width = screen_width * 2
         self.world_height = screen_height * 2
@@ -115,6 +119,9 @@ class World:
     
         # Generování světa
         self.generate_world()
+
+        print("Fence horizontal size:", self.fence_horizontal.get_width(), self.fence_horizontal.get_height())
+        print("Fence vertical size:", self.fence_vertical.get_width(), self.fence_vertical.get_height())
 
     def generate_world(self):
         """Procedurální generování herního světa"""
@@ -232,6 +239,9 @@ class World:
         """Zda je možné na dané pozici stát (bez kolize s pevnými objekty)"""
         pos = Vector2(x, y)
 
+        if self.is_inside_fence(x, y, radius):
+            return False
+
         for tree in self.trees:
             if tree.dying:
                 continue  # Nebereme v úvahu umírající stromy
@@ -244,6 +254,15 @@ class World:
                 return False
 
         return True
+
+    def is_inside_fence(self, x, y, radius=12):
+        """Vrací True, pokud je objekt mimo plot (tedy koliduje s plotem)"""
+        left = 0 + radius
+        right = self.world_width - radius
+        top = 0 + radius
+        bottom = self.world_height - radius
+
+        return not (left <= x <= right and top <= y <= bottom)
 
     def get_objects_in_area(self, center_x, center_y, radius):
         """Získání objektů v dané oblasti"""
@@ -339,6 +358,27 @@ class World:
             if (camera_x - 50 <= deco.position.x <= camera_x + self.screen_width + 50 and
                 camera_y - 50 <= deco.position.y <= camera_y + self.screen_height + 50):
                 deco.render(screen, camera_x, camera_y)
+
+        # Vykreslení plotu
+        self.render_fences(screen, camera_x, camera_y)
+
+
+    def render_fences(self, screen, camera_x, camera_y):
+
+        tile_size = 32
+
+        # Horní a dolní okraj
+        for x in range(0, self.world_width, tile_size):
+            screen.blit(self.fence_horizontal, (x - camera_x, 0 - camera_y))  # horní okraj
+            screen.blit(self.fence_horizontal, (x - camera_x, self.world_height - tile_size - camera_y))  # dolní okraj
+
+        # Levý a pravý okraj
+        for y in range(0, self.world_height, tile_size):
+            screen.blit(self.fence_vertical, (0 - camera_x, y - camera_y))  # levý okraj
+            screen.blit(self.fence_vertical, (self.world_width - tile_size - camera_x, y - camera_y))  # pravý okraj
+
+
+
 
     def get_minimap_data(self, camera_x, camera_y, minimap_size):
         """Získání dat pro minimapu"""

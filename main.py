@@ -157,7 +157,7 @@ class ForestLumberjack:
         # Aktualizace herních objektů
         self.player.update(dt)
         self.world.update(dt)
-        self.npc_manager.update(dt, self.player)
+        self.npc_manager.update(dt, self.player, self.world)
         self.shop_system.update(dt)
 
         # Aktualizace kamery
