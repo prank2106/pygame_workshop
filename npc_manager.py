@@ -31,7 +31,7 @@ class Goblin:
         self.animation_timer = 0
         self.frame = 0
 
-    def update(self, dt, player):
+    def update(self, dt, player, world):
         """Aktualizace goblina"""
         self.steal_cooldown -= dt
         self.flee_timer -= dt
@@ -64,7 +64,10 @@ class Goblin:
             direction = self.target_position - self.position
             if direction.magnitude() > 2:
                 direction = direction.normalize()
-                self.position = self.position + direction * self.speed * dt
+                new_pos = self.position + direction * self.speed * dt
+                if not world.is_inside_fence(new_pos.x, new_pos.y, self.size):
+                    self.position = new_pos
+
 
         elif self.state == "stealing":
             # Move toward player to steal
@@ -183,7 +186,7 @@ class Leprechaun:
         self.teleport_timer = 0
         self.interaction_cooldown = 0
 
-    def update(self, dt, player):
+    def update(self, dt, player, world):
         """Aktualizace leprikóna"""
         self.teleport_timer += dt
         self.interaction_cooldown -= dt
@@ -244,7 +247,7 @@ class Bear:
         self.direction = "down" 
         self.current_frame = 0
 
-    def update(self, dt, player):
+    def update(self, dt, player, world):
         """Aktualizace medvěda"""
         self.attack_cooldown -= dt
         player_distance = GameEngine.distance(self.position, player.position)
@@ -257,7 +260,9 @@ class Bear:
             direction = player.position - self.position
             if direction.magnitude() > 0:
                 direction = direction.normalize()
-                self.position = self.position + direction * self.speed * dt
+                new_pos = self.position + direction * self.speed * dt
+                if not world.is_inside_fence(new_pos.x, new_pos.y, self.size):
+                    self.position = new_pos
                 if abs(direction.x) > abs(direction.y):
                     self.direction = "right" if direction.x > 0 else "left"
                 else:
@@ -328,7 +333,7 @@ class Fox:
         self.frame = 0
         self.last_direction_x = -1  # Facing left initially
 
-    def update(self, dt, player):
+    def update(self, dt, player, world):
         """Aktualizace lišky"""
         self.steal_cooldown -= dt
         self.animation_timer += dt
@@ -370,7 +375,9 @@ class Fox:
         direction = self.target_position - self.position
         if direction.magnitude() > 2:
             direction = direction.normalize()
-            self.position = self.position + direction * self.speed * dt
+            new_pos = self.position + direction * self.speed * dt
+            if not world.is_inside_fence(new_pos.x, new_pos.y, self.size):
+                self.position = new_pos
 
             # Update facing direction
             if abs(direction.x) > 0.1:
@@ -437,7 +444,7 @@ class Rabbit:
         self.frame = 0
         self.last_direction_x = -1  # -1 = left, 1 = right (initial default facing left)
 
-    def update(self, dt, player):
+    def update(self, dt, player, world):
         """Aktualizace králíka"""
         self.animation_timer += dt
         if self.animation_timer > 0.2:
@@ -465,7 +472,9 @@ class Rabbit:
         direction = self.target_position - self.position
         if direction.magnitude() > 2:
             direction = direction.normalize()
-            self.position = self.position + direction * self.speed * dt
+            new_pos = self.position + direction * self.speed * dt
+            if not world.is_inside_fence(new_pos.x, new_pos.y, self.size):
+                self.position = new_pos
 
             # Update last movement direction (left/right)
             if abs(direction.x) > 0.1:
@@ -533,56 +542,56 @@ class NPCManager:
     def spawn_npcs(self):
         """Vytvoření NPC postav"""
         # Goblinové (2-3)
-        for i in range(random.randint(2, 3)):
-            x = random.uniform(150, 850)
-            y = random.uniform(150, 650)
+        for i in range(random.randint(8, 15)):
+            x = random.uniform(0, self.world.world_width)
+            y = random.uniform(0, self.world.world_height)
             self.goblins.append(Goblin(x, y))
 
         # Leprikónové (1-2)
-        for i in range(random.randint(1, 2)):
-            x = random.uniform(200, 800)
-            y = random.uniform(200, 600)
+        for i in range(random.randint(3, 4)):
+            x = random.uniform(0, self.world.world_width)
+            y = random.uniform(0, self.world.world_height)
             self.leprechauns.append(Leprechaun(x, y))
 
         # Medvědi (1-2)
-        for i in range(random.randint(1, 2)):
-            x = random.uniform(300, 700)
-            y = random.uniform(300, 500)
+        for i in range(random.randint(10, 15)):
+            x = random.uniform(0, self.world.world_width)
+            y = random.uniform(0, self.world.world_height)
             self.bears.append(Bear(x, y))
 
         # Lišky (2-4)
-        for i in range(random.randint(2, 4)):
-            x = random.uniform(100, 900)
-            y = random.uniform(100, 700)
+        for i in range(random.randint(14, 20)):
+            x = random.uniform(0, self.world.world_width)
+            y = random.uniform(0, self.world.world_height)
             self.foxes.append(Fox(x, y))
 
         # Králíci (3-6)
-        for i in range(random.randint(3, 6)):
-            x = random.uniform(150, 850)
-            y = random.uniform(150, 650)
+        for i in range(random.randint(10, 20)):
+            x = random.uniform(0, self.world.world_width)
+            y = random.uniform(0, self.world.world_height)
             self.rabbits.append(Rabbit(x, y))
 
-    def update(self, dt, player):
+    def update(self, dt, player, world):
         """Aktualizace všech NPC"""
         # Aktualizace goblinů
         for goblin in self.goblins[:]:  # Kopie seznamu pro bezpečné mazání
-            goblin.update(dt, player)
+            goblin.update(dt, player, world)
 
         # Aktualizace leprikónů
         for leprechaun in self.leprechauns:
-            leprechaun.update(dt, player)
+            leprechaun.update(dt, player, world)
 
         # Aktualizace medvědů
         for bear in self.bears:
-            bear.update(dt, player)
+            bear.update(dt, player, world)
 
         # Aktualizace lišek
         for fox in self.foxes:
-            fox.update(dt, player)
+            fox.update(dt, player, world)
 
         # Aktualizace králíků
         for rabbit in self.rabbits:
-            rabbit.update(dt, player)
+            rabbit.update(dt, player, world)
 
     def render(self, screen, camera_x, camera_y):
         """Vykreslení všech NPC"""
