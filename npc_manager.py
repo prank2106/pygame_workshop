@@ -6,6 +6,13 @@ from game_engine import Vector2, GameEngine, NPCBehavior
 class Goblin:
     """Třída reprezentující goblina - zloděje"""
 
+    shared_sprite_sheet = None
+
+    sprite_width = 48
+    sprite_height = 48
+    frame_count = 3  # assuming 3 frames per row
+    animation_speed = 0.15  # seconds per frame
+
     def __init__(self, x, y):
         self.position = Vector2(x, y)
         self.target_position = Vector2(x, y)
@@ -14,11 +21,15 @@ class Goblin:
         self.state = "wandering"  # wandering, stealing, fleeing
         self.color = (139, 0, 139)  # Fialová
 
-        # AI parametry
+        # AI parameters
         self.wander_timer = 0
         self.steal_cooldown = 0
         self.flee_timer = 0
-        self.catchable = True  # OPRAVA: Flag pro možnost chycení
+        self.catchable = True  # Flag for catchability
+
+        # Animation
+        self.animation_timer = 0
+        self.frame = 0
 
     def update(self, dt, player):
         """Aktualizace goblina"""
@@ -27,10 +38,15 @@ class Goblin:
 
         player_distance = GameEngine.distance(self.position, player.position)
 
+        self.animation_timer += dt
+        if self.animation_timer > self.animation_speed:
+            self.frame = (self.frame + 1) % self.frame_count
+            self.animation_timer = 0
+
         if self.state == "wandering":
-            # Náhodné putování
+            # Random wandering
             self.wander_timer += dt
-            if self.wander_timer >= 3.0:  # Změna směru každé 3 sekundy
+            if self.wander_timer >= 3.0:  # Change direction every 3 seconds
                 offset_x = random.uniform(-80, 80)
                 offset_y = random.uniform(-80, 80)
                 self.target_position = Vector2(
@@ -39,22 +55,22 @@ class Goblin:
                 )
                 self.wander_timer = 0
 
-            # Pokud je hráč blízko a goblin není v cooldownu, pokus o krádež
+            # Attempt to steal if player nearby and cooldown done
             if player_distance < 60 and self.steal_cooldown <= 0:
                 self.state = "stealing"
                 self.target_position = player.position
 
-            # Pohyb k cíli
+            # Move toward target
             direction = self.target_position - self.position
             if direction.magnitude() > 2:
                 direction = direction.normalize()
                 self.position = self.position + direction * self.speed * dt
 
         elif self.state == "stealing":
-            # Pokus o krádež - přiblížení k hráči
+            # Move toward player to steal
             if player_distance < 25:
-                # Úspěšná krádež
-                if random.random() < 0.6:  # 60% šance na úspěch
+                # Successful steal chance
+                if random.random() < 0.6:
                     stolen_coins = min(player.coins, random.randint(5, 15))
                     stolen_wood = min(player.wood, random.randint(0, 2))
 
@@ -64,60 +80,106 @@ class Goblin:
                     if stolen_coins > 0 or stolen_wood > 0:
                         print(f"Goblin ti ukradl {stolen_coins} mincí a {stolen_wood} dřeva!")
 
-                # Po krádeži útěk
+                # After stealing, flee
                 self.state = "fleeing"
                 self.flee_timer = 5.0
                 self.steal_cooldown = 10.0
 
-                # Útěk od hráče
                 escape_direction = self.position - player.position
                 if escape_direction.magnitude() > 0:
                     escape_direction = escape_direction.normalize()
                     self.target_position = self.position + escape_direction * 200
             else:
-                # Pohyb k hráči
+                # Move closer to player
                 direction = player.position - self.position
                 if direction.magnitude() > 0:
                     direction = direction.normalize()
                     self.position = self.position + direction * self.speed * dt
 
         elif self.state == "fleeing":
-            # Útěk od hráče
+            # Flee from player
             if self.flee_timer <= 0:
                 self.state = "wandering"
             else:
-                # Pokračování v útěku
                 direction = self.target_position - self.position
                 if direction.magnitude() > 2:
                     direction = direction.normalize()
                     self.position = self.position + direction * (self.speed * 1.5) * dt
 
     def render(self, screen, camera_x, camera_y):
-        """Vykreslení goblina"""
+        """Vykreslení goblina podle směru pohybu"""
+
         screen_x = int(self.position.x - camera_x)
         screen_y = int(self.position.y - camera_y)
 
-        # Barva podle stavu
-        color = self.color
-        if self.state == "stealing":
-            color = (255, 0, 0)  # Červená při krádeži
-        elif self.state == "fleeing":
-            color = (255, 165, 0)  # Oranžová při útěku
+        if Goblin.shared_sprite_sheet is None:
+            Goblin.shared_sprite_sheet = pygame.image.load("assets/goblin_sprite_sheet.png").convert_alpha()
 
-        # OPRAVA: Vizuální indikátor, že je možné goblina chytit
+        # Movement direction vector
+        move_dir = self.target_position - self.position
+        if move_dir.magnitude() > 2:
+            move_dir = move_dir.normalize()
+        else:
+            move_dir = Vector2(0, 0)  # idle
+
+        # Determine animation row based on direction
+        if move_dir.magnitude() == 0:
+            anim_row = 0  # idle/down row
+            frame = 0
+        else:
+            abs_x = abs(move_dir.x)
+            abs_y = abs(move_dir.y)
+            if abs_x > abs_y:
+                anim_row = 1 if move_dir.x < 0 else 2  # left or right
+            else:
+                anim_row = 3 if move_dir.y < 0 else 0  # up or down
+
+            frame = self.frame
+
+        frame_rect = pygame.Rect(
+            frame * self.sprite_width,
+            anim_row * self.sprite_height,
+            self.sprite_width,
+            self.sprite_height
+        )
+
+        sprite = Goblin.shared_sprite_sheet.subsurface(frame_rect)
+
+        scaled_sprite = pygame.transform.smoothscale(
+            sprite,
+            (self.sprite_width // 2, self.sprite_height // 2)
+        )
+
+        # Optional colored overlay based on state
+        overlay_color = None
+        if self.state == "stealing":
+            overlay_color = (255, 0, 0, 100)  # translucent red
+        elif self.state == "fleeing":
+            overlay_color = (255, 165, 0, 100)  # translucent orange
+
+        if overlay_color:
+            overlay_surf = pygame.Surface((self.sprite_width // 2, self.sprite_height // 2), pygame.SRCALPHA)
+            overlay_surf.fill(overlay_color)
+            scaled_sprite.blit(overlay_surf, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
+
+        # Catchable indicator
         if self.catchable and GameEngine.distance(Vector2(screen_x, screen_y), Vector2(512, 384)) < 50:
             pygame.draw.circle(screen, (255, 255, 0), (screen_x, screen_y), self.size + 5, 2)
 
-        pygame.draw.circle(screen, color, (screen_x, screen_y), self.size)
-        pygame.draw.circle(screen, (0, 0, 0), (screen_x, screen_y), self.size, 2)
+        screen.blit(scaled_sprite, (
+            screen_x - (self.sprite_width // 4),
+            screen_y - (self.sprite_height // 4)
+        ))
+
 
 class Leprechaun:
     """Třída reprezentující leprikóna - pomocníka"""
 
+    static_image = None
+
     def __init__(self, x, y):
         self.position = Vector2(x, y)
         self.size = 14
-        self.color = (0, 255, 0)  # Zelená
         self.teleport_timer = 0
         self.interaction_cooldown = 0
 
@@ -126,7 +188,7 @@ class Leprechaun:
         self.teleport_timer += dt
         self.interaction_cooldown -= dt
 
-        # Náhodná teleportace každých 15-30 sekund
+        # Náhodná teleportace každých 15–30 sekund
         if self.teleport_timer >= random.uniform(15, 30):
             self.position.x = random.uniform(100, 900)
             self.position.y = random.uniform(100, 700)
@@ -137,14 +199,23 @@ class Leprechaun:
         screen_x = int(self.position.x - camera_x)
         screen_y = int(self.position.y - camera_y)
 
-        # Blikající efekt
-        blink = int(pygame.time.get_ticks() / 500) % 2
-        if blink:
-            pygame.draw.circle(screen, self.color, (screen_x, screen_y), self.size)
-        else:
-            pygame.draw.circle(screen, (255, 255, 255), (screen_x, screen_y), self.size)
+        if Leprechaun.static_image is None:
+            Leprechaun.static_image = pygame.image.load("assets/leprechaun_static.png").convert_alpha()
 
-        pygame.draw.circle(screen, (0, 0, 0), (screen_x, screen_y), self.size, 2)
+        sprite = Leprechaun.static_image
+
+        # Zvětšení statického obrázku
+        scale_factor = 0.6
+        scaled_sprite = pygame.transform.smoothscale(
+            sprite,
+            (int(sprite.get_width() * scale_factor), int(sprite.get_height() * scale_factor))
+        )
+
+        screen.blit(scaled_sprite, (
+            screen_x - scaled_sprite.get_width() // 2,
+            screen_y - scaled_sprite.get_height() // 2
+        ))
+
 
 class Bear:
     """Třída reprezentující medvěda - nepřítele"""
@@ -238,6 +309,13 @@ class Bear:
 class Fox:
     """Třída reprezentující lišku - rychlého zloděje"""
 
+    shared_sprite_sheet = None
+
+    sprite_width = 60
+    sprite_height = 48
+    frame_count = 3
+    animation_row = 6.6
+
     def __init__(self, x, y):
         self.position = Vector2(x, y)
         self.target_position = Vector2(x, y)
@@ -246,10 +324,19 @@ class Fox:
         self.color = (255, 165, 0)  # Oranžová
         self.steal_cooldown = 0
         self.wander_timer = 0
+        self.animation_timer = 0
+        self.frame = 0
+        self.last_direction_x = -1  # Facing left initially
 
     def update(self, dt, player):
         """Aktualizace lišky"""
         self.steal_cooldown -= dt
+        self.animation_timer += dt
+
+        if self.animation_timer > 0.15:
+            self.frame = (self.frame + 1) % self.frame_count
+            self.animation_timer = 0
+
         player_distance = GameEngine.distance(self.position, player.position)
 
         if player_distance < 50 and self.steal_cooldown <= 0:
@@ -285,37 +372,86 @@ class Fox:
             direction = direction.normalize()
             self.position = self.position + direction * self.speed * dt
 
+            # Update facing direction
+            if abs(direction.x) > 0.1:
+                self.last_direction_x = 1 if direction.x > 0 else -1
+
     def render(self, screen, camera_x, camera_y):
-        """Vykreslení lišky"""
+        """Vykreslení lišky pomocí sprite sheetu"""
         screen_x = int(self.position.x - camera_x)
         screen_y = int(self.position.y - camera_y)
 
-        pygame.draw.circle(screen, self.color, (screen_x, screen_y), self.size)
-        pygame.draw.circle(screen, (0, 0, 0), (screen_x, screen_y), self.size, 2)
+        if Fox.shared_sprite_sheet is None:
+            Fox.shared_sprite_sheet = pygame.image.load("assets/fox_sprite_sheet.png").convert_alpha()
+
+        is_moving = (self.target_position - self.position).magnitude() > 2
+
+        if is_moving:
+            y_offset = int(self.sprite_height * self.animation_row)
+            frame = self.frame
+        else:
+            y_offset = 0
+            frame = 0
+
+        frame_rect = pygame.Rect(
+            frame * self.sprite_width,
+            y_offset,
+            self.sprite_width,
+            self.sprite_height
+        )
+
+        sprite = Fox.shared_sprite_sheet.subsurface(frame_rect)
+
+        # Flip if facing right
+        if self.last_direction_x > 0:
+            sprite = pygame.transform.flip(sprite, True, False)
+
+        # Scale down
+        scaled_sprite = pygame.transform.smoothscale(
+            sprite,
+            (self.sprite_width // 2, self.sprite_height // 2)
+        )
+
+        screen.blit(scaled_sprite, (
+            screen_x - (self.sprite_width // 4),
+            screen_y - (self.sprite_height // 4)
+        ))
 
 class Rabbit:
     """Třída reprezentující králíka - dekorativní NPC"""
+    shared_sprite_sheet = None
+
+    sprite_width = 48   # Match your sprite frame width
+    sprite_height = 48  # Match your sprite frame height
+    frame_count = 3     # Number of frames in the 6th row
+    animation_row = 4.8  # Use the 6th row (index 5)
 
     def __init__(self, x, y):
         self.position = Vector2(x, y)
         self.target_position = Vector2(x, y)
         self.size = 8
         self.speed = 100
-        self.color = (255, 255, 255)  # Bílá
+        self.color = (255, 255, 255)
         self.wander_timer = 0
+        self.animation_timer = 0
+        self.frame = 0
+        self.last_direction_x = -1  # -1 = left, 1 = right (initial default facing left)
 
     def update(self, dt, player):
         """Aktualizace králíka"""
+        self.animation_timer += dt
+        if self.animation_timer > 0.2:
+            self.frame = (self.frame + 1) % self.frame_count
+            self.animation_timer = 0
+
         player_distance = GameEngine.distance(self.position, player.position)
 
         if player_distance < 40:
-            # Útěk od hráče
             escape_direction = self.position - player.position
             if escape_direction.magnitude() > 0:
                 escape_direction = escape_direction.normalize()
                 self.target_position = self.position + escape_direction * 100
         else:
-            # Náhodné putování
             self.wander_timer += dt
             if self.wander_timer >= 3.0:
                 offset_x = random.uniform(-50, 50)
@@ -326,19 +462,57 @@ class Rabbit:
                 )
                 self.wander_timer = 0
 
-        # Pohyb
         direction = self.target_position - self.position
         if direction.magnitude() > 2:
             direction = direction.normalize()
             self.position = self.position + direction * self.speed * dt
 
+            # Update last movement direction (left/right)
+            if abs(direction.x) > 0.1:
+                self.last_direction_x = 1 if direction.x > 0 else -1
+
     def render(self, screen, camera_x, camera_y):
-        """Vykreslení králíka"""
+        """Vykreslení králíka pomocí sprite sheetu"""
         screen_x = int(self.position.x - camera_x)
         screen_y = int(self.position.y - camera_y)
 
-        pygame.draw.circle(screen, self.color, (screen_x, screen_y), self.size)
-        pygame.draw.circle(screen, (0, 0, 0), (screen_x, screen_y), self.size, 2)
+        if Rabbit.shared_sprite_sheet is None:
+            Rabbit.shared_sprite_sheet = pygame.image.load("assets/rabbit_sprite_sheet.png").convert_alpha()
+
+        # Determine if rabbit is moving (i.e. animation vs idle)
+        is_moving = (self.target_position - self.position).magnitude() > 2
+
+        if is_moving:
+            y_offset = int(self.sprite_height * self.animation_row)
+            frame = self.frame
+        else:
+            y_offset = 0  # First row for idle
+            frame = 0     # First frame
+
+        frame_rect = pygame.Rect(
+            frame * self.sprite_width,
+            y_offset,
+            self.sprite_width,
+            self.sprite_height
+        )
+
+        sprite = Rabbit.shared_sprite_sheet.subsurface(frame_rect)
+
+        # Flip sprite if facing right
+        if self.last_direction_x > 0:
+            sprite = pygame.transform.flip(sprite, True, False)
+
+        # 🔽 SCALE DOWN: 50%
+        scaled_sprite = pygame.transform.smoothscale(
+            sprite,
+            (self.sprite_width // 2, self.sprite_height // 2)
+        )
+
+        screen.blit(scaled_sprite, (
+            screen_x - (self.sprite_width // 4),
+            screen_y - (self.sprite_height // 4)
+        ))
+
 
 class NPCManager:
     """Manager pro všechny NPC postavy"""
